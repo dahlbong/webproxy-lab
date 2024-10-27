@@ -144,7 +144,20 @@ void get_filetype(char *filename, char *filetype) {
 }
 
 void serve_dynamic(int fd, char *filename, char *cgiargs) {
+  char buf[MAXLINE], *emptylist[] = {NULL};
 
+  /* 클라이언트의 성공을 알려주는 응답 라인 보내기 */
+  sprintf(buf, "HTTP/1.0 200 OK\r\n");
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "Server: Tiny Web Server\r\n");
+  Rio_writen(fd, buf, strlen(buf));
+
+  if (Fork() == 0) {                      // 새로운 자식 프로세스 fork()
+    setenv("QUERY_STRING", cgiargs, 1);   // QUERY_STRING 환경변수를 요청 URI의 CGI 인자들로 초기화
+    Dup2(fd, STDOUT_FILENO);              // 자식의 표준 출력을 연결 파일 식별자로 재지정
+    Execve(filename, emptylist, environ); // CGI 프로그램 로드 및 실행
+  }
+  Wait(NULL);                             // 자식이 종료되어 정리되는 것을 기다리기 위해 wait함수에서 블록
 }
 
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,char *longmsg) {
