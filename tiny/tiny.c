@@ -92,7 +92,23 @@ void read_requesthdrs(rio_t *rp) {
 }
 
 int parse_uri(char *uri, char *filename, char *cgiargs) {
-
+  char *ptr;
+  if (!strstr(uri, "cgi-bin")) {  // 정적컨텐츠
+    strcpy(cgiargs, "");          // CGI 인자 string 삭제
+    strcpy(filename, ".");        // URI를 상대 리눅스 경로 이름으로 변환
+    strcat(filename, uri);
+    if (uri[strlen(uri) - 1] == '/') strcat (filename, "home.html"); // 기본 파일이름 추가
+      return 1;
+  } else {  // 동적컨텐츠
+    ptr = index(uri, '?');
+    if (ptr) {                    // 모든 CGI 인자 추출
+      strcpy(cgiargs, ptr + 1);
+      *ptr = '\0';
+    } else strcpy(cgiargs, "");
+    strcpy(filename, ".");        // 나머지 URI 부분 상대 리눅스 파일 이름으로 변환
+    strcat(filename, uri);
+    return 0;
+  }
 }
 
 void serve_static(int fd, char *filename, int filesize) {
