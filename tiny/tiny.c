@@ -146,7 +146,7 @@ void get_filetype(char *filename, char *filetype) {
   else if (strstr(filename, ".gif")) strcpy(filetype, "image/gif");
   else if (strstr(filename, ".png")) strcpy(filetype, "image/png");
   else if (strstr(filename, ".jpg")) strcpy(filetype, "image/jpeg"); 
-  else if (strstr(filename, ".mpeg")) strcpy(filetype, "video/mpeg");   // 숙제 11.7번 풀이 코드
+  else if (strstr(filename, ".mp4")) strcpy(filetype, "video/mp4");   // 숙제 11.7번 풀이 코드
   else strcpy(filetype, "text/plain");
 }
 
