@@ -135,10 +135,17 @@ void serve_static(int fd, char *filename, int filesize) {
 
   /* 클라이언트에게 응답 바디 전송 */
   srcfd = Open(filename, O_RDONLY, 0);                        // 읽기 위해 filename 오픈하고 식별자 얻어옴
-  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // 요청 파일을 가상메모리 영역으로 매핑
-  Close(srcfd);                                               // 매핑됐으면 더 이상 식별자가 필요없으므로 파일 닫기
-  Rio_writen(fd, srcp, filesize);                             // 클라이언트에게 파일 전송
-  Munmap(srcp, filesize);                                     // 매핑된 가상메모리주소 반환
+  // srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // 요청 파일을 가상메모리 영역으로 매핑
+  // Close(srcfd);                                               // 매핑됐으면 더 이상 식별자가 필요없으므로 파일 닫기
+  // Rio_writen(fd, srcp, filesize);                             // 클라이언트에게 파일 전송
+  // Munmap(srcp, filesize);                                     // 매핑된 가상메모리주소 반환
+
+  /* 숙제 11.9: Mmap 대신 malloc 사용하기 */
+  srcp = (char*)malloc(filesize);
+  rio_readn(srcfd, srcp, filesize);
+  close(srcfd);
+  rio_writen(fd, srcp, filesize);
+  free(srcp);
 }
 
 void get_filetype(char *filename, char *filetype) {
