@@ -81,9 +81,9 @@ void doit(int fd) {
 
 void read_requesthdrs(rio_t *rp) {
   char buf[MAXLINE];
-  Rio_readlineb(rp, buf, MAXLINE);
-  while(strcmp(buf, "\r\n")) {
-    Rio_readlineb(rp, buf, MAXLINE);
+  Rio_readlineb(rp, buf, MAXLINE);    // 요청 헤더를 한 줄씩 읽어서 출력
+  while(strcmp(buf, "\r\n")) {        // 빈줄이 나올 때까지 읽음
+    Rio_readlineb(rp, buf, MAXLINE);  
     printf("%s", buf);
   }
   return;
@@ -146,6 +146,7 @@ void get_filetype(char *filename, char *filetype) {
   else if (strstr(filename, ".gif")) strcpy(filetype, "image/gif");
   else if (strstr(filename, ".png")) strcpy(filetype, "image/png");
   else if (strstr(filename, ".jpg")) strcpy(filetype, "image/jpeg"); 
+  else if (strstr(filename, ".mpeg")) strcpy(filetype, "video/mpeg");   // 숙제 11.7번 풀이 코드
   else strcpy(filetype, "text/plain");
 }
 
