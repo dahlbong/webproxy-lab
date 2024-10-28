@@ -29,13 +29,11 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
-  listenfd = Open_listenfd(argv[1]);
+  listenfd = Open_listenfd(argv[1]);    // 포트번호를 인자로 받기
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr,
-                    &clientlen);  // line:netp:tiny:accept
-    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
-                0);
+    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);  // line:netp:tiny:accept
+    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
     doit(connfd);   // line:netp:tiny:doit
     Close(connfd);  // line:netp:tiny:close
@@ -116,18 +114,26 @@ void serve_static(int fd, char *filename, int filesize) {
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
 
-  /* 클라이언트에게 요청 헤더 전송 */
+  /* 클라이언트에게 응답 헤더 전송 */
   get_filetype(filename, filetype);                           // 파일 타입 결정
-  sprintf(buf, "HTTP/1.0 200 OK\r\n");
-  sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
-  sprintf(buf, "%sConnection: close\r\n", buf);
-  sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
-  sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
+  int idx = 0;
+  
+  // sprintf(buf, "HTTP/1.1 200 OK\r\n");
+  // sprintf(buf, "%sServer: Tiny Web Server\r\n", buf);
+  // sprintf(buf, "%sConnection: close\r\n", buf);
+  // sprintf(buf, "%sContent-length: %d\r\n", buf, filesize);
+  // sprintf(buf, "%sContent-type: %s\r\n\r\n", buf, filetype);
+  idx += sprintf(buf + idx, "HTTP/1.1 200 OK\r\n");
+  idx += sprintf(buf + idx, "Server: Tiny Web Server\r\n");
+  idx += sprintf(buf + idx, "Connection: close\r\n");
+  idx += sprintf(buf + idx, "Content-length: %d\r\n", filesize);
+  idx += sprintf(buf + idx, "Content-type: %s\r\n\r\n", filetype);
+
   Rio_writen(fd, buf, strlen(buf));
   printf("Response headers:\n");
   printf("%s", buf);
 
-  /* 클라이언트에게 요청 바디 전송 */
+  /* 클라이언트에게 응답 바디 전송 */
   srcfd = Open(filename, O_RDONLY, 0);                        // 읽기 위해 filename 오픈하고 식별자 얻어옴
   srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0); // 요청 파일을 가상메모리 영역으로 매핑
   Close(srcfd);                                               // 매핑됐으면 더 이상 식별자가 필요없으므로 파일 닫기
