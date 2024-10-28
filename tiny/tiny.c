@@ -11,9 +11,9 @@
 void doit(int fd);
 void read_requesthdrs(rio_t *rp);
 int parse_uri(char *uri, char *filename, char *cgiargs);
-void serve_static(int fd, char *filename, int filesize);
+void serve_static(int fd, char *filename, int filesize, char *method);
 void get_filetype(char *filename, char *filetype);
-void serve_dynamic(int fd, char *filename, char *cgiargs);
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg,
                  char *longmsg);
 
@@ -52,7 +52,8 @@ void doit(int fd) {
   printf("Request headers: \n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
-  if (strcasecmp(method, "GET")) {
+  /* 숙제 11.11: HEAD 메서드 인식 기능 추가 */
+  if (strcasecmp(method, "GET") != 0 && strcasecmp(method, "HEAD") != 0) {
     clienterror(fd, method, "501", "Not implemented", "Tiny does not implement this method");
     return;
   }
@@ -69,13 +70,13 @@ void doit(int fd) {
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't read the file");
       return;
     }
-    serve_static(fd, filename, sbuf.st_size);
+    serve_static(fd, filename, sbuf.st_size, method);
   } else { //동적 컨텐츠
     if (!(S_ISREG(sbuf.st_mode)) || !(S_IXUSR & sbuf.st_mode)) {
       clienterror(fd, filename, "403", "Forbidden", "Tiny couldn't run the CGI program");
       return;
     }
-    serve_dynamic(fd, filename, cgiargs);
+    serve_dynamic(fd, filename, cgiargs, method);
   } 
 }
 
@@ -110,7 +111,7 @@ int parse_uri(char *uri, char *filename, char *cgiargs) {
 }
 
 // HTML, 무형식 텍스트파일, GIF, PNG, JPEG
-void serve_static(int fd, char *filename, int filesize) {   
+void serve_static(int fd, char *filename, int filesize, char *method) {   
   int srcfd;
   char *srcp, filetype[MAXLINE], buf[MAXBUF];
 
@@ -132,6 +133,9 @@ void serve_static(int fd, char *filename, int filesize) {
   Rio_writen(fd, buf, strlen(buf));
   printf("Response headers:\n");
   printf("%s", buf);
+
+  /* 숙제 11.11: HEAD 메서드일 경우 바디 전송할 필요 없음 */
+  if (strcasecmp(method, "HEAD") == 0) return;
 
   /* 클라이언트에게 응답 바디 전송 */
   srcfd = Open(filename, O_RDONLY, 0);                        // 읽기 위해 filename 오픈하고 식별자 얻어옴
@@ -157,7 +161,7 @@ void get_filetype(char *filename, char *filetype) {
   else strcpy(filetype, "text/plain");
 }
 
-void serve_dynamic(int fd, char *filename, char *cgiargs) {
+void serve_dynamic(int fd, char *filename, char *cgiargs, char *method) {
   char buf[MAXLINE], *emptylist[] = {NULL};
 
   /* 클라이언트의 성공을 알려주는 응답 라인 보내기 */

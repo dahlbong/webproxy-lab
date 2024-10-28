@@ -5,7 +5,7 @@
 #include "../csapp.h"
 
 int main(void) {
-  char *buf, *p;
+  char *buf, *p, *method;
   char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE];
   int n1 = 0, n2 = 0;
 
@@ -25,7 +25,7 @@ int main(void) {
 
   /* 응답 바디 생성 */
   int idx = 0;
-  idx += sprintf(content + idx, "QUERY_STRING=%s", buf);
+  //idx += sprintf(content + idx, "QUERY_STRING=%s\r\n", buf);
   idx += sprintf(content + idx, "Welcome to add.com: ");
   idx += sprintf(content + idx, "The Internet addition portal. \r\n<p>");
   idx += sprintf(content + idx, "The answer is: %d + %d = %d \r\n", n1, n2, n1+n2);
@@ -36,7 +36,7 @@ int main(void) {
   printf("Content-length: %d\r\n", (int)strlen(content));
   printf("Content-type: text/html\r\n\r\n");
   printf("%s", content);
-  fflush(stdout);
+  fflush(stdout);   // 출력 버퍼 비우기 
   
   exit(0);
 }
