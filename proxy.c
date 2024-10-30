@@ -99,28 +99,21 @@ int parse_uri(char *uri, char *hostname, char *path, char *port) {
 
 void doRequest(int serverfd, char *method, char *path, char *hostname) {
   char buf[MAXLINE];
+  int idx = 0;
 
   printf("\n<<<< Proxy Request to Server >>>>\n");
 
   sprintf(buf, "%s %s HTTP/1.0\r\n", method, path);
-  printf("Request Line: %s", buf);
+  printf("<Request line>\n%s", buf);
   Rio_writen(serverfd, buf, strlen(buf));
 
-  sprintf(buf, "Host: %s\r\n", hostname);
-  printf("<HEADER>\nHost: %s", buf);
+  idx += sprintf(buf + idx, "Host: %s\r\n", hostname);
+  idx += sprintf(buf + idx, "%s", user_agent_hdr);
+  idx += sprintf(buf + idx, "Connection: close\r\n");
+  idx += sprintf(buf + idx, "Proxy-Connection: close\r\n\r\n");
   Rio_writen(serverfd, buf, strlen(buf));
 
-  sprintf(buf, "%s", user_agent_hdr);
-  printf("User-Agent: %s", buf);
-  Rio_writen(serverfd, buf, strlen(buf));
-
-  sprintf(buf, "Connection: close\r\n");
-  printf("Connection: %s", buf);
-  Rio_writen(serverfd, buf, strlen(buf));
-
-  sprintf(buf, "Proxy-Connection: close\r\n\r\n");
-  printf("Proxy-Connection: %s", buf);
-  Rio_writen(serverfd, buf, strlen(buf));
+  printf("<Header>\n%s", buf);
 }
 
 void doResponse(int serverfd, int clientfd) {
