@@ -8,6 +8,7 @@ static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
 
 void doit(int fd);
+void *thread(void *varp);
 void doRequest(int serverfd, char *method, char *path, char *hostname);
 void doResponse(int serverfd, int clientfd);
 int parse_uri(char *uri, char *hostname, char *path, char *port);
@@ -15,27 +16,36 @@ void clientError(int fd, char *cause, char *errnum, char *shortmsg, char *longms
 
 int main(int argc, char *argv[]) {
 
-    setbuf(stdout, NULL);
+  setbuf(stdout, NULL);
 
-    int listenfd, connfd;
-    char hostname[MAXLINE], port[MAXLINE];
-    socklen_t clientlen;
-    struct sockaddr_storage clientaddr;
+  int listenfd, connfd, *connfdp;
+  char hostname[MAXLINE], port[MAXLINE];
+  socklen_t clientlen;
+  struct sockaddr_storage clientaddr;
+  pthread_t tid;         // 멀티쓰레딩용 쓰레드id
 
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s <port>\n", argv[0]);
-        exit(1);
-    }
+  if (argc != 2) {
+      fprintf(stderr, "usage: %s <port>\n", argv[0]);
+      exit(0);
+  }
+  listenfd = Open_listenfd(argv[1]);
 
-    listenfd = Open_listenfd(argv[1]);
-    while (1) {
-        clientlen = sizeof(clientaddr);
-        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-        Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
-        printf("Accepted connection from (%s, %s)\n", hostname, port);
-        doit(connfd);
-        Close(connfd);
-    }
+  while (1) {
+    clientlen = sizeof(clientaddr);
+    connfdp = Malloc(sizeof(int));
+    *connfdp = Accept(listenfd, (SA*) &clientaddr, &clientlen); // 클라이언트의 연결 받아들이고, connfd에 연결된 소켓의 fd 저장
+    Pthread_create(&tid, NULL, thread, connfdp);                 // 새로운 쓰레드 생성되어 connfd 값 참조 가능하게 됨
+  }
+}
+
+/* Thread Routine */
+void *thread(void *vargp) {
+  int connfd = *((int*)vargp);
+  Pthread_detach(pthread_self());
+  Free(vargp);
+  doit(connfd);
+  Close(connfd);
+  return NULL;
 }
 
 void doit(int clientfd) {
