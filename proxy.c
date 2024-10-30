@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
 
   setbuf(stdout, NULL);
 
-  int listenfd, connfd, *connfdp;
+  int listenfd, *connfdp;
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
@@ -30,11 +30,21 @@ int main(int argc, char *argv[]) {
   }
   listenfd = Open_listenfd(argv[1]);
 
+  // while (1) {
+  //     clientlen = sizeof(clientaddr);
+  //     connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+  //     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
+  //     printf("Accepted connection from (%s, %s)\n", hostname, port);
+  //     doit(connfd);
+  //     Close(connfd);
+  // }
+  
+  /* 동시성 서버: 멀티쓰레딩 구현 */
   while (1) {
     clientlen = sizeof(clientaddr);
-    connfdp = Malloc(sizeof(int));
-    *connfdp = Accept(listenfd, (SA*) &clientaddr, &clientlen); // 클라이언트의 연결 받아들이고, connfd에 연결된 소켓의 fd 저장
-    Pthread_create(&tid, NULL, thread, connfdp);                 // 새로운 쓰레드 생성되어 connfd 값 참조 가능하게 됨
+    connfdp = Malloc(sizeof(int));                                // 각 쓰레드가 독립적으로 fd 참조 가능하도록 동적메모리 할당
+    *connfdp = Accept(listenfd, (SA*) &clientaddr, &clientlen);   // 클라이언트의 연결 받아들이고, connfdp에 연결된 소켓의 fd 저장
+    Pthread_create(&tid, NULL, thread, connfdp);                  // 새로운 쓰레드 생성되어 connfdp 값 참조 가능하게 됨
   }
 }
 
