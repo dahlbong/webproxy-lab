@@ -17,25 +17,24 @@ typedef struct Cache {
 } Cache;
 
 
-Cache* createCache();
+Cache *createCache();
 void freeCache(Cache *cache);
 
-CacheNode* createCacheNode(const char *path, const char *data, size_t size);
+CacheNode *createCacheNode(const char *path, const char *data, size_t size);
 void evictOldCache(Cache *cache);
 
-CacheNode* readCache(Cache *cache, const char *path);
+CacheNode *readCache(Cache *cache, const char *path);
 void writeCache(Cache *cache, const char *path, const char *data, size_t size);
 void sendCache(Cache *cache, int clientfd, CacheNode *node);
 
 
 /* [CREATE] CacheNode 생성 */
-CacheNode* createCacheNode(const char *path, const char *data, size_t size) {
+CacheNode *createCacheNode(const char *path, const char *data, size_t size) {
     CacheNode *node = malloc(sizeof(CacheNode));
     node->path = strdup(path);      // 파라미터 문자열 복사하여 새로 할당된 메모리에 저장
     node->data = malloc(size);
     memcpy(node->data, data, size);
     node->size = size;
-    node->timestamp = time(NULL);
     node->next = NULL;
     return node;
 }
@@ -50,7 +49,7 @@ CacheNode* readCache(Cache *cache, const char *path) {
     return NULL; // 캐시에 데이터 없음 -> write 수행
 }
 
-/* [READ-2] proxy가 Cache에서 데이터 가져가면, 그 데이터가 있는 CacheNode는 가장 마지막 노드로 보내기(LRU) */
+/* [READ-2] proxy가 Cache에서 찾으면 데이터 보내고, 그 데이터가 있는 CacheNode는 가장 마지막 노드로 보내기(LRU) */
 void sendCache(Cache *cache, int clientfd, CacheNode *node) {
     /* 캐시된 데이터 클라이언트에 전송 */
     Rio_writen(clientfd, node->data, node->size);
@@ -67,8 +66,13 @@ void sendCache(Cache *cache, int clientfd, CacheNode *node) {
 
 /* [UPDATE] proxy가 Cache에 새로운 데이터 추가하려고 하면, 가장 마지막 노드에 새 cacheNode 추가하기  */
 void writeCache(Cache *cache, const char *path, const char *data, size_t size) {
+    if (size > MAX_CACHE_SIZE) {
+        printf("Data too large to cache.\n");
+        return;
+    }
+
     while (cache->curSize + size > MAX_CACHE_SIZE) {
-        evictOldCache(cache->head);
+        evictOldCache(cache);
     }
     
     CacheNode *newNode = createCacheNode(path, data, size);
