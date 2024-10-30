@@ -11,16 +11,17 @@ void doResponse(int serverfd, int clientfd, char *path);
 int parse_uri(char *uri, char *hostname, char *path, char *port);
 void clientError(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
-/* 캐싱에 필요한 전역변수 선언 및 캐시 자료구조 생성 */
+/* 캐싱 및 동기화에 필요한 전역변수 선언 및 캐시 자료구조 생성 */
 Cache *cache;
+sem_t cacheMutex;
 
 int main(int argc, char *argv[]) {
-
   int listenfd, *connfdp;
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
   pthread_t tid;                        // 멀티쓰레딩용 쓰레드id
+  Sem_init(&cacheMutex, 0, 1);          // 세마포어 초기화
 
   if (argc != 2) {
       fprintf(stderr, "usage: %s <port>\n", argv[0]);
@@ -37,7 +38,7 @@ int main(int argc, char *argv[]) {
   //     Close(connfd);
   // }
 
-  /* 동시성 서버: 멀티쓰레딩 구현 */
+  /* PART2 동시성 서버: 멀티쓰레딩 구현 */
   while (1) {
     clientlen = sizeof(clientaddr);
     connfdp = Malloc(sizeof(int));                                // 각 쓰레드가 독립적으로 fd 참조 가능하도록 동적메모리 할당
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]) {
 /* Thread Routine */
 void *thread(void *vargp) {
   int connfd = *((int*)vargp);
+  int niters = 0, cnt = 0;
   Pthread_detach(pthread_self());
   Free(vargp);
   doit(connfd);
@@ -83,23 +85,32 @@ void doit(int clientfd) {
       return;
   }
 
-  /* PART3: 서버 접속 전에 Cache에서 데이터 먼저 찾기 */
+  /* PART3 캐싱 서버: 서버 접속 전에 Cache에서 데이터 먼저 찾기 */
+
+  sem_wait(&cacheMutex);  // 세마포어 대기
+  /* -------------------- race condition 발생 가능 지역 ---------------------------------*/
   cached = readCache(cache, path);
   if (cached !=  NULL) {
     sendCache(cache, clientfd, cached);
-  } else {    // 캐시에 데이터 없으면 서버 접속
-    printf("Connecting to server: %s:%s\n", hostname, port);
-    serverfd = Open_clientfd(hostname, port);
-    if (serverfd < 0) {
-        clientError(clientfd, hostname, "404", "Not found", "Could not connect to server");
-        return;
-    }
-
-    Rio_readinitb(&serverRio, serverfd);
-    doRequest(serverfd, method, path, hostname);  
-    doResponse(serverfd, clientfd, path);               //PART3: 서버에서 데이터 받아오고 client 응답주기 전에 cache에 write 필요
-    Close(serverfd);
+    sem_post(&cacheMutex);
+    return; 
   }
+  /* -------------------- race condition 발생 가능 지역 ---------------------------------*/
+  sem_post(&cacheMutex);
+  
+  
+  // 캐시에 데이터 없으면 서버 접속
+  printf("Connecting to server: %s:%s\n", hostname, port);
+  serverfd = Open_clientfd(hostname, port);
+  if (serverfd < 0) {
+      clientError(clientfd, hostname, "404", "Not found", "Could not connect to server");
+      return;
+  }
+
+  Rio_readinitb(&serverRio, serverfd);
+  doRequest(serverfd, method, path, hostname);  
+  doResponse(serverfd, clientfd, path);               //PART3: 서버에서 데이터 받아오고 client 응답주기 전에 cache에 write 필요
+  Close(serverfd);
 }
 
 int parse_uri(char *uri, char *hostname, char *path, char *port) {
@@ -166,7 +177,14 @@ void doResponse(int serverfd, int clientfd, char *path) {
     }
     totalBytes += n;
   }
+
+  sem_wait(&cacheMutex);
+  /* -------------------- race condition 발생 가능 지역 ---------------------------------*/
   writeCache(cache, path, responseBuffer, responseSize);     // 캐시에 전체 응답 데이터 새로 저장
+  /* -------------------- race condition 발생 가능 지역 ---------------------------------*/
+  sem_post(&cacheMutex);
+
+  free(responseBuffer);
   printf("<<<< Response Complete >>>>\r\n");
 }
 
