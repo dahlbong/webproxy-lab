@@ -73,7 +73,7 @@ void sendCache(Cache *cache, int clientfd, CacheNode *node) {
     printf("Sent cached data for path: %s\n", node->path);
     if (cache->head == node) return;
     
-    /* [UPDATE] proxy가 Cache에 새로운 데이터 추가하려고 하면, 가장 마지막 노드에 새 cacheNode 추가하기  */
+    /* [UPDATE] 그 데이터가 있는 CacheNode는 가장 마지막 노드로 보내기(LRU) */
     CacheNode *prev = cache->head;
     while (prev->next != node) prev = prev->next;   // 이전 노드 찾기
     prev->next = node->next;
