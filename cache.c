@@ -28,7 +28,7 @@ void writeCache(Cache *cache, const char *path, const char *data, size_t size);
 void sendCache(Cache *cache, int clientfd, CacheNode *node);
 
 
-/* [CREATE] CacheNode 생성 */
+
 CacheNode *createCacheNode(const char *path, const char *data, size_t size) {
     CacheNode *node = malloc(sizeof(CacheNode));
     node->path = strdup(path);      // 파라미터 문자열 복사하여 새로 할당된 메모리에 저장
@@ -37,6 +37,23 @@ CacheNode *createCacheNode(const char *path, const char *data, size_t size) {
     node->size = size;
     node->next = NULL;
     return node;
+}
+
+/* [CREATE] CacheNode 생성 */
+void writeCache(Cache *cache, const char *path, const char *data, size_t size) {
+    if (size > MAX_CACHE_SIZE) {
+        printf("Data too large to cache.\n");
+        return;
+    }
+
+    while (cache->curSize + size > MAX_CACHE_SIZE) {
+        evictOldCache(cache);
+    }
+    
+    CacheNode *newNode = createCacheNode(path, data, size);
+    newNode->next = cache->head;
+    cache->head = newNode;
+    cache->curSize += size;
 }
 
 /* [READ-1] CacheNode 탐색 */
@@ -56,29 +73,12 @@ void sendCache(Cache *cache, int clientfd, CacheNode *node) {
     printf("Sent cached data for path: %s\n", node->path);
     if (cache->head == node) return;
     
-    /* 순번 update: 노드가 head가 아니면 send하는 노드를 head로 만들기 */
+    /* [UPDATE] proxy가 Cache에 새로운 데이터 추가하려고 하면, 가장 마지막 노드에 새 cacheNode 추가하기  */
     CacheNode *prev = cache->head;
     while (prev->next != node) prev = prev->next;   // 이전 노드 찾기
     prev->next = node->next;
     node->next = cache->head;
     cache->head = node;
-}
-
-/* [UPDATE] proxy가 Cache에 새로운 데이터 추가하려고 하면, 가장 마지막 노드에 새 cacheNode 추가하기  */
-void writeCache(Cache *cache, const char *path, const char *data, size_t size) {
-    if (size > MAX_CACHE_SIZE) {
-        printf("Data too large to cache.\n");
-        return;
-    }
-
-    while (cache->curSize + size > MAX_CACHE_SIZE) {
-        evictOldCache(cache);
-    }
-    
-    CacheNode *newNode = createCacheNode(path, data, size);
-    newNode->next = cache->head;
-    cache->head = newNode;
-    cache->curSize += size;
 }
 
 /* [DELETE] 가장 첫번째 cacheNode 삭제(LRU) */
